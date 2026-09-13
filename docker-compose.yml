@@ -1,0 +1,30 @@
+services:
+  app:
+    build: .
+    volumes:
+      - .:/var/www/html
+      - preview_data:/tmp/ffmpeg_preview
+    environment:
+      - FFMPEG_PATH=/usr/bin/ffmpeg
+    networks:
+      - ffmpeg-net
+
+  web:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - preview_data:/tmp/ffmpeg_preview
+    depends_on:
+      - app
+    networks:
+      - ffmpeg-net
+
+networks:
+  ffmpeg-net:
+    driver: bridge
+
+volumes:
+  preview_data:

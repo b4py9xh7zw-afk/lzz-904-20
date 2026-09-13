@@ -1,0 +1,62 @@
+[
+    {
+        "name": "电影感 (Cinematic)",
+        "params": {
+            "brightness": "0.05",
+            "contrast": "1.2",
+            "saturation": "1.1",
+            "temp": "5000",
+            "unsharp": "5:5:1.0",
+            "blur": "0",
+            "custom": ""
+        }
+    },
+    {
+        "name": "复古冷调 (Retro Cool)",
+        "params": {
+            "brightness": "-0.05",
+            "contrast": "1.1",
+            "saturation": "0.8",
+            "temp": "8500",
+            "unsharp": "0",
+            "blur": "1",
+            "custom": ""
+        }
+    },
+    {
+        "name": "1",
+        "params": {
+            "brightness": "0.49",
+            "contrast": "1.33",
+            "saturation": "1.61",
+            "temp": "19000",
+            "unsharp": "0:5:1.0",
+            "blur": "0",
+            "custom": ""
+        }
+    },
+    {
+        "name": "冲冲冲",
+        "params": {
+            "brightness": "0.26",
+            "contrast": "1.39",
+            "saturation": "1.7",
+            "temp": "9100",
+            "unsharp": "0.8:5:1.0",
+            "blur": "3",
+            "custom": ""
+        }
+    },
+    {
+        "name": "电影感1",
+        "params": {
+            "brightness": "0.23",
+            "contrast": "1.24",
+            "saturation": "1.45",
+            "temp": "12700",
+            "unsharp": "1.3:5:1.0",
+            "blur": "2",
+            "custom": ""
+        }
+    }
+]
