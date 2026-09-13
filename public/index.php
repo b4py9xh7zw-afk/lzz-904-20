@@ -281,6 +281,32 @@ if (file_exists($presetsFile)) {
                         <div id="error-output" class="mt-4 text-rose-400 whitespace-pre-wrap"></div>
                     </div>
                 </section>
+
+                <!-- Report Export -->
+                <section class="glass p-6 rounded-2xl shadow-xl" id="report-section">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex-1 min-w-[240px]">
+                            <h2
+                                class="flex items-center gap-2 text-sm font-semibold text-slate-400 uppercase tracking-wider">
+                                <i data-lucide="file-text" class="w-4 h-4"></i> 调参报告导出
+                            </h2>
+                            <p class="text-xs text-slate-500 mt-2 leading-relaxed">
+                                导出包含素材信息、滤镜参数、预览图与完整命令的报告（仅内嵌压缩缩略图，不含视频文件），方便剪辑同事
+                                1:1 复现效果。
+                            </p>
+                        </div>
+                        <div class="flex gap-3">
+                            <button id="export-txt-btn" onclick="exportReport('txt')" disabled
+                                class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-800">
+                                <i data-lucide="file-text" class="w-4 h-4"></i> TXT 报告
+                            </button>
+                            <button id="export-html-btn" onclick="exportReport('html')" disabled
+                                class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-indigo-600">
+                                <i data-lucide="file-code" class="w-4 h-4"></i> HTML 报告
+                            </button>
+                        </div>
+                    </div>
+                </section>
             </div>
         </div>
     </div>
@@ -305,10 +331,11 @@ if (file_exists($presetsFile)) {
 
     <!-- Toast Notification -->
     <div id="toast"
-        class="fixed bottom-8 right-8 translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
-        <div class="bg-indigo-600 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+        class="fixed bottom-8 right-8 translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50">
+        <div id="toast-box"
+            class="bg-indigo-600 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3">
             <i data-lucide="check-circle" class="w-5 h-5"></i>
-            <span id="toast-msg">提示信息</span>
+            <span>提示信息</span>
         </div>
     </div>
 
@@ -326,6 +353,7 @@ if (file_exists($presetsFile)) {
         const execTime = document.getElementById('exec-time');
 
         let currentFile = null;
+        let lastReport = null; // 最近一次成功预览的报告数据（用于导出调参报告）
 
         // Sync Range and Number Inputs
         function bindInput(id, def) {
@@ -446,6 +474,19 @@ if (file_exists($presetsFile)) {
                     downloadBtn.download = `processed_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`;
                     downloadBtn.classList.remove('hidden');
 
+                    // 记录报告数据并解锁导出按钮
+                    lastReport = {
+                        media: result.media || {},
+                        params: result.params || {},
+                        vf: result.vf || '',
+                        cmd: result.cmd || '',
+                        thumb: result.thumb || null,
+                        generated_at: result.generated_at || '',
+                        duration: result.duration || 0
+                    };
+                    document.getElementById('export-txt-btn').disabled = false;
+                    document.getElementById('export-html-btn').disabled = false;
+
                     showToast('渲染完成');
                 } else {
                     errorOutput.textContent = result.error || '执行失败';
@@ -470,11 +511,13 @@ if (file_exists($presetsFile)) {
             document.getElementById('range-saturation').value = params.saturation;
             document.getElementById('val-temp').value = params.temp;
             document.getElementById('range-temp').value = params.temp;
-            document.getElementById('range-unsharp').value = params.unsharp.split(':')[0] || 0;
-            document.getElementById('val-unsharp-display').textContent = params.unsharp.split(':')[0] || 0;
+            const unsharpVal = String(params.unsharp ?? '0').split(':')[0];
+            document.getElementById('range-unsharp').value = unsharpVal;
+            document.getElementById('val-unsharp-display').textContent = unsharpVal;
             document.getElementById('range-blur').value = params.blur || 0;
             document.getElementById('val-blur-display').textContent = params.blur || 0;
-            document.getElementById('custom-vf').value = params.custom || '';
+            const customVfEl = document.getElementById('custom-vf');
+            if (customVfEl) customVfEl.value = params.custom || '';
             showToast('已加载预设');
         }
 
@@ -508,7 +551,7 @@ if (file_exists($presetsFile)) {
                 temp: document.getElementById('val-temp').value,
                 unsharp: document.getElementById('range-unsharp').value + ':5:1.0',
                 blur: document.getElementById('range-blur').value,
-                custom: document.getElementById('custom-vf').value
+                custom: document.getElementById('custom-vf') ? document.getElementById('custom-vf').value : ''
             };
 
             const resp = await fetch('process.php?action=save_preset', {
@@ -538,10 +581,66 @@ if (file_exists($presetsFile)) {
             });
         }
 
+        // 导出调参报告 (txt / html)
+        async function exportReport(format) {
+            if (!lastReport) {
+                showToast('请先生成预览效果，再导出报告', 'error');
+                return;
+            }
+
+            const btn = document.getElementById(format === 'html' ? 'export-html-btn' : 'export-txt-btn');
+            btn.disabled = true;
+
+            try {
+                const resp = await fetch('report.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ format, ...lastReport })
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    throw new Error(err.error || '报告生成失败');
+                }
+
+                const blob = await resp.blob();
+                // 优先使用服务端下发的文件名
+                const disposition = resp.headers.get('Content-Disposition') || '';
+                const match = disposition.match(/filename="?([^";]+)"?/i);
+                const filename = match ? match[1] : `filter_report.${format}`;
+
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+                showToast('报告已导出');
+            } catch (err) {
+                showToast(err.message || '导出失败', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
         function showToast(msg, type = 'success') {
             const toast = document.getElementById('toast');
-            const toastMsg = document.getElementById('toast-msg');
-            toastMsg.textContent = msg;
+            const box = document.getElementById('toast-box');
+            const isError = type === 'error';
+
+            box.className = `${isError ? 'bg-rose-600' : 'bg-indigo-600'} text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3`;
+            box.innerHTML = '';
+            const icon = document.createElement('i');
+            icon.setAttribute('data-lucide', isError ? 'alert-circle' : 'check-circle');
+            icon.className = 'w-5 h-5';
+            const text = document.createElement('span');
+            text.textContent = msg;
+            box.append(icon, text);
+            lucide.createIcons();
+
             toast.classList.remove('translate-y-20', 'opacity-0');
             toast.classList.add('translate-y-0', 'opacity-100');
             setTimeout(() => {
